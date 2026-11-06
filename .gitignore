@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+dist/
+log.html
+
+# Personal log data lives in ~/.local/share/agentlog and ~/.config/agentlog.
+# These guard against a log being written here with AGENTLOG_HOME=. or by an old version.
+/data/
+/LOG.md
+/projects/
+/config.toml

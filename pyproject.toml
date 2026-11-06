@@ -1,0 +1,51 @@
+[project]
+name = "agentlog"
+version = "0.1.0"
+description = "Log of coding-agent sessions (Claude Code, opencode): what, where, when, how long."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Andre Rendeiro" }]
+requires-python = ">=3.11"
+dependencies = []
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development",
+]
+
+[project.scripts]
+agentlog = "agentlog.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.8,<1"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "taskipy>=1.14.1",
+]
+
+[tool.taskipy.tasks]
+# show/report/serve run sync first (taskipy's pre_<task> hooks).
+pre_show = { cmd = "uv run agentlog sync", help = "runs before show" }
+pre_report = { cmd = "uv run agentlog sync", help = "runs before report" }
+pre_serve = { cmd = "uv run agentlog sync", help = "runs before serve" }
+sync = { cmd = "uv run agentlog sync", help = "scan both harnesses, record new/changed sessions, summarise them" }
+show = { cmd = "uv run agentlog show", help = "last entries (optionally for one project)" }
+report = { cmd = "uv run agentlog report --by week", help = "active time per project per week" }
+serve = { cmd = "uv run agentlog serve --open", help = "web view at http://127.0.0.1:8765" }
+install = { cmd = "uv run agentlog install", help = "(re)install the hooks/plugin/commands" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]  # line length is left to the formatter
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
