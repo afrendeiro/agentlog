@@ -1,24 +1,12 @@
 import json
+import os
 from datetime import datetime, timedelta
 
 import pytest
+from conftest import claude_rows, write_claude
 
 from agentlog import claude, cli, common, render, store
 from agentlog.summarize import MAX_CHARS, digest
-
-
-@pytest.fixture(autouse=True)
-def isolated(tmp_path, monkeypatch):
-    """Fresh config and data dir for every test."""
-    monkeypatch.setattr(common, "CONFIG_FILE", tmp_path / "config.toml")
-    monkeypatch.setattr(common, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(render, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(store, "DATA", tmp_path)
-    monkeypatch.setattr(store, "SESSIONS", tmp_path / "sessions.jsonl")
-    common.config.cache_clear()
-    yield tmp_path
-    common.config.cache_clear()
-
 
 START = datetime(2026, 1, 1, 23, 0).astimezone()
 
@@ -123,3 +111,43 @@ def test_put_refuses_foreign_files(tmp_path):
     dst.write_text("someone else's")
     with pytest.raises(SystemExit):
         cli.put("from agentlog", dst)
+
+
+def test_claude_edge_cases(tmp_path):
+    rows = [
+        {"type": "user", "timestamp": "2026-01-01T09:59:00Z", "isMeta": True, "message": {"content": "meta"}},
+        {"type": "user", "timestamp": "2026-01-01T09:59:30Z",
+         "message": {"content": "<command-name>/review</command-name><command-args>PR 7</command-args>"}},
+        {"type": "user", "timestamp": "2026-01-01T09:59:40Z",
+         "message": {"content": "<local-command-stdout>ok</local-command-stdout>"}},
+        {"type": "user", "timestamp": "2026-01-01T09:59:50Z", "origin": {"kind": "task-notification"},
+         "message": {"content": "agent finished"}},
+        {"type": "user", "timestamp": "2026-01-01T09:59:55Z", "isSidechain": True, "message": {"content": "sub"}},
+        *claude_rows("/w"),
+        {"type": "system", "subtype": "away_summary", "timestamp": "2026-01-01T10:03:00Z",
+         "content": "Left at step 2 (disable recaps in /config)"},
+        {"type": "custom-title", "customTitle": "My name"},
+        {"type": "ai-title", "aiTitle": "AI name"},
+        {"type": "cost-state", "totalCostUSD": 0.42},
+    ]  # fmt: skip
+    path = write_claude("s1", rows)
+    path.write_text(path.read_text() + "{not json\n")
+    s = claude.load(path)
+    assert s.prompts == ["/review PR 7", "fix the bug"]
+    assert (s.recap, s.title, s.cost_usd) == ("Left at step 2", "My name", 0.42)
+
+    # the same session id in two project dirs (e.g. a renamed dir): the newest file wins
+    newer = write_claude("s1", claude_rows("/renamed"), project_dir="-renamed")
+    os.utime(newer, (newer.stat().st_atime, path.stat().st_mtime + 10))
+    assert dict(claude.list_sessions()) == {"s1": newer}
+    assert claude.find("s1") == newer
+    assert claude.find("nope") is None
+
+
+def test_render_multi_day_session(isolated):
+    s = session(0, 10, 50, 60, 70)  # 23:00 -> 00:10 next day
+    rec = store.record(s, None)
+    render.render({rec["key"]: rec})
+    log = (isolated / "LOG.md").read_text()
+    assert "(session continues until 2026-01-02)" in log
+    assert "30m active total" in log
