@@ -1,5 +1,7 @@
 # agentlog
 
+[![CI](https://github.com/afrendeiro/agentlog/actions/workflows/ci.yml/badge.svg)](https://github.com/afrendeiro/agentlog/actions/workflows/ci.yml)
+
 > [!NOTE]
 > **Built by AI agents.** agentlog was written almost entirely by LLM agents,
 > directed by one person. Use at your own risk.
@@ -159,7 +161,7 @@ expose it with `--host` on an untrusted network.
 git clone https://github.com/afrendeiro/agentlog && cd agentlog
 uv tool install -e .     # the global `agentlog` runs your checkout
 uv sync
-uv run pytest
+uv run pytest --cov=agentlog   # tests never touch your real log, ~/.claude or opencode DB
 uvx ruff check . && uvx ruff format --check .
 ```
 
