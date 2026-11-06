@@ -5,6 +5,7 @@ import os
 import sqlite3
 from collections import Counter
 from collections.abc import Iterator
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
@@ -13,10 +14,11 @@ from .common import Session, clip, tool_line
 DB = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "opencode" / "opencode.db"
 
 
-def _connect() -> sqlite3.Connection:
+def _connect() -> closing[sqlite3.Connection]:
+    """Read-only connection, closed on leaving the `with` (sqlite3's own context manager only commits)."""
     con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
-    return con
+    return closing(con)
 
 
 def _ts(ms: int) -> datetime:
