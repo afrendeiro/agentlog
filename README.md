@@ -1,9 +1,84 @@
 # agentlog
 
-A log of every coding-agent session (Claude Code and opencode): which project, when, for how long,
-and a very brief **before / did / after**.
+> [!NOTE]
+> **Built by AI agents.** agentlog was written almost entirely by LLM agents,
+> directed by one person. Use at your own risk.
 
-The log is stored locally:
+A running log of every coding-agent session you have with
+[Claude Code](https://claude.com/claude-code) and [opencode](https://opencode.ai): which project, when, for
+how long, and a one-line **before / did / after** for each.
+
+It answers questions like *"what did I actually do on Tuesday?"*, *"where did I leave project X?"* and
+*"how much time went into Y this month?"* without you having to write anything down. Sessions are recorded
+automatically when they end, and summarised from the transcript by Claude.
+
+```console
+$ agentlog show -n 1
+- **my-webapp** · 2026-11-05 14:02–15:10 · 52m active · claude · Add CSV export to reports page
+  - before: Continued the reports refactor from the previous session; export button was a stub.
+  - did: Implemented streaming CSV export with column selection, added tests, fixed a timezone bug in dates.
+  - after: Export works and tests pass; large-report performance still untested, next step is pagination.
+
+$ agentlog report --by week
+project        2026-W44  2026-W45
+my-webapp        6h20m    4h05m
+dotfiles           45m    1h10m
+thesis-figures   2h30m
+```
+
+## Features
+
+- **Automatic**: a Claude Code `SessionEnd` hook and an opencode plugin record sessions as they end;
+  `agentlog sync` catches up on anything missed, including sessions from before you installed it.
+- **Summaries that link up**: each session gets a before/did/after, written with the previous entry for
+  the same project as context, so a project's file reads as a running story.
+- **Agent-written entries**: `/log-session` inside a session makes the agent write its own entry, which is
+  usually better than one written afterwards from the transcript.
+- **Honest time accounting**: active time ignores breaks (gaps over 15 min) and is split across days for
+  sessions that run past midnight.
+- **Several views**: a searchable local web page, Markdown files (by day and per project), terminal
+  `show`/`report`, and the raw JSONL.
+- **Local and simple**: one JSONL file, no daemon, no database, no dependencies beyond the Python standard
+  library.
+
+## Quick start
+
+Requirements: Linux or macOS, Python ≥ 3.11, [uv](https://docs.astral.sh/uv/), and the `claude` CLI on
+`PATH` for summaries (you can skip summaries with `--no-summary`).
+
+```sh
+uv tool install git+https://github.com/afrendeiro/agentlog   # puts `agentlog` on PATH
+agentlog install    # Claude hook, opencode plugin, /log-session commands
+agentlog            # record existing sessions, then open the web view
+```
+
+The first run summarises every past session it finds, one `claude -p --model haiku` call each. Limit that
+with `agentlog sync --since 2026-10-01` (or skip it with `--no-summary`) if you have a long history.
+
+`agentlog install` adds a `SessionEnd` hook to `~/.claude/settings.json` (backup in
+`settings.json.bak-agentlog`) and writes `~/.claude/commands/log-session.md`,
+`~/.config/opencode/plugins/agentlog.js` and `~/.config/opencode/commands/log-session.md`. It refuses to
+overwrite files it didn't write. Re-run it after upgrading or reinstalling agentlog, because the hook and
+plugin call the Python interpreter agentlog is installed in.
+
+## Commands
+
+```sh
+agentlog                      # sync, then open the web view
+agentlog sync                 # scan both harnesses, record new/changed sessions, summarise them
+agentlog show [project]       # last entries (optionally for one project)
+agentlog report --by week     # active time per project per week (or month, total)
+agentlog serve --open         # web view at http://127.0.0.1:8765 (search, project/harness filters)
+agentlog html -o log.html     # the same page as a static file
+agentlog install              # (re)install the hooks/plugin/commands
+```
+
+See `agentlog <command> --help` for all options. `sync` is idempotent and incremental: sessions whose
+source hasn't changed are skipped, and a summary is only rewritten when its session has grown. Useful
+flags: `--since YYYY-MM-DD`, `--session ID`, `--harness claude|opencode`, `--no-summary`, `--force`
+(re-summarise everything).
+
+## Where things are stored
 
 - `~/.local/share/agentlog/sessions.jsonl`: the data, one JSON record per session
 - `~/.local/share/agentlog/LOG.md`: all sessions by day, plus a project index (generated)
@@ -13,94 +88,63 @@ The log is stored locally:
 `$XDG_DATA_HOME`/`$XDG_CONFIG_HOME` are respected. Set `AGENTLOG_HOME` to keep config and data together in
 one directory instead, e.g. a private git repo of your own log.
 
-## Requirements
+## Configuration
 
-- Linux or macOS (file locking uses `fcntl`), Python ≥ 3.11, [uv](https://docs.astral.sh/uv/)
-- [Claude Code](https://claude.com/claude-code) and/or [opencode](https://opencode.ai) (the harnesses that get logged)
-- the `claude` CLI on `PATH` for the summaries (skip them with `--no-summary`)
+All settings are optional; see [config.example.toml](config.example.toml) for the defaults.
 
-## Install
+- `idle_minutes`: gaps longer than this count as breaks (default 15)
+- `summary_model`: model for `claude -p` summaries (default `haiku`)
+- `ignore_paths`: sessions started under these directories aren't logged (default `/tmp`)
+- `not_project_roots`: directories never treated as a project, e.g. a home dir that is a git repo
+- `[aliases]`: map a path prefix to a project name, e.g. after renaming a project
 
-```sh
-git clone https://github.com/afrendeiro/agentlog && cd agentlog
-uv tool install .        # puts `agentlog` on PATH; use `-e .` to hack on it
-agentlog install         # Claude hook, opencode plugin, /log-session commands
-```
+## How it works
 
-`agentlog install` adds a `SessionEnd` hook to `~/.claude/settings.json` (backup in
-`settings.json.bak-agentlog`) and writes `~/.claude/commands/log-session.md`,
-`~/.config/opencode/plugins/agentlog.js` and `~/.config/opencode/commands/log-session.md`. It refuses to
-overwrite files it didn't write. Re-run it after upgrading or reinstalling agentlog: the hook and plugin call
-the Python interpreter agentlog is installed in.
-
-Running `agentlog` with no arguments, from any directory, syncs and then opens the web view.
-
-## Commands
-
-```sh
-agentlog sync                 # scan both harnesses, record new/changed sessions, summarise them
-agentlog show [project]       # last entries (optionally for one project)
-agentlog report --by week     # active time per project per week (or month, total)
-agentlog serve --open         # web view at http://127.0.0.1:8765 (search, project/harness filters)
-agentlog html -o log.html     # the same page as a static file
-agentlog install              # (re)install the hooks/plugin/commands below
-```
-
-See `agentlog <command> --help` for all options. `sync` is idempotent and incremental: sessions whose
-source hasn't changed are skipped, and a summary is only rewritten when its session has grown. Useful
-flags: `--since YYYY-MM-DD`, `--session ID`, `--harness claude|opencode`, `--no-summary`, `--force`
-(re-summarise everything).
-
-## How sessions get recorded
+### Recording
 
 | | automatic | by hand, from inside the session |
 |---|---|---|
-| Claude Code | `SessionEnd` hook in `~/.claude/settings.json` runs `agentlog hook claude`, which detaches a `sync` of that session | `/log-session` |
-| opencode | plugin `~/.config/opencode/plugins/agentlog.js`: records metadata on each idle and writes the summary after 20 min without activity (opencode has no "session ended" event) | `/log-session` |
+| Claude Code | `SessionEnd` hook runs `agentlog hook claude`, which detaches a `sync` of that session | `/log-session` |
+| opencode | plugin records metadata whenever the agent goes idle, and writes the summary after 20 min without activity (opencode has no "session ended" event) | `/log-session` |
 
-Anything missed (killed terminal, sessions from before this existed) is picked up by the next
-`agentlog sync`.
-
-`/log-session` makes the agent write its own before/did/after, which is usually better than the
-after-the-fact summary. Entries written that way (`"source": "agent"`) aren't overwritten by `sync`
+Anything missed (a killed terminal, sessions from before agentlog was installed) is picked up by the next
+`agentlog sync`. Entries written with `/log-session` (`"source": "agent"`) aren't overwritten by `sync`
 unless you pass `--force`.
 
-## Where the data comes from
+### Sources
 
-- **Claude Code**: `~/.claude/projects/<dir>/<session>.jsonl`. Subagent transcripts are ignored, and so are
-  `claude -p`/SDK runs. The title is `ai-title`/`custom-title`, and the harness's own "recap" (`away_summary`)
-  is passed to the summariser.
-- **opencode**: `~/.local/share/opencode/opencode.db` (`session_v2`, `session_message`), opened read-only.
-  Subagent sessions are folded into their root session.
+- **Claude Code**: `~/.claude/projects/<dir>/<session>.jsonl` (respects `CLAUDE_CONFIG_DIR`). Subagent
+  transcripts and `claude -p`/SDK runs are ignored. The harness's own title and "recap" are kept.
+- **opencode**: `~/.local/share/opencode/opencode.db`, opened read-only. Subagent sessions are folded into
+  their root session.
 
-Summaries come from `claude -p --model haiku` (structured JSON output, no tools, no session saved). The
-summariser gets a condensed transcript (prompts, agent replies, tool calls) plus the previous entry for the
-same project, so "before" can refer back to it. Its environment sets `AGENTLOG_SUMMARIZING=1`, so the
-hooks never recurse.
+### Summaries
 
-## What gets recorded
+Summaries come from `claude -p` with structured JSON output, no tools and no saved session. The summariser
+gets a condensed transcript (your prompts, the agent's replies, the tool calls it made) plus the previous
+entry for the same project. Its environment sets `AGENTLOG_SUMMARIZING=1`, so the hooks never recurse.
 
-- **project**: the alias from `config.toml` if one matches; otherwise the git root of the session's starting
+### Fields
+
+- **project**: the matching alias from the config; otherwise the git root of the session's starting
   directory (never `~`); otherwise the directory itself.
-- **active time**: gaps between events of `idle_minutes` (15) or less count as work, longer gaps count as
-  breaks. Time is split per day (`days`), so sessions that run over several days are counted on the right
-  days. It measures agent-plus-you activity, so long autonomous runs count in full.
-- `wall_min`, `prompts`, `model`, `cost_usd`, `branch`, `first_prompt`, harness `title` and `recap`.
-
-Settings (idle threshold, summary model, ignored paths, project aliases) go in `~/.config/agentlog/config.toml`;
-see [config.example.toml](config.example.toml) for the options and defaults.
+- **active time**: gaps between events of `idle_minutes` or less count as work. It measures agent-plus-you
+  activity, so long autonomous runs count in full. Time is split per day (`days`).
+- also `wall_min`, `prompts`, `model`, `cost_usd`, `branch`, `first_prompt`, harness `title` and `recap`.
 
 ## Privacy
 
-The log contains your prompts' first lines, working directories and summaries of what you did, so treat
-`~/.local/share/agentlog` as private. Summaries are written by sending a condensed transcript of each session
-to Claude through your own `claude` CLI (`claude -p`), the same way the session itself was. Nothing else
+The log contains the start of your first prompt, working directories, and summaries of what you did, so
+treat `~/.local/share/agentlog` as private. Summaries are written by sending a condensed transcript of each
+session to Claude through your own `claude` CLI, the same service the session itself used. Nothing else
 leaves your machine. `agentlog serve` binds to `127.0.0.1` by default and has no authentication, so don't
 expose it with `--host` on an untrusted network.
 
 ## Development
 
 ```sh
+git clone https://github.com/afrendeiro/agentlog && cd agentlog
+uv tool install -e .     # the global `agentlog` runs your checkout
 uv sync
 uv run pytest
 uvx ruff check . && uvx ruff format --check .
@@ -108,6 +152,9 @@ uvx ruff check . && uvx ruff format --check .
 
 The `task` shortcuts in `pyproject.toml` ([taskipy](https://github.com/taskipy/taskipy); `uv run task --list`)
 run `uv run agentlog <command>` from the checkout.
+
+Adding another harness means a reader module like `src/agentlog/claude.py` (list sessions, load one into
+a `Session`) plus a way to trigger `sync` when a session ends.
 
 ## License
 
