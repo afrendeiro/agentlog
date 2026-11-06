@@ -1,0 +1,19 @@
+# agentlog configuration. Copy to ~/.config/agentlog/config.toml (or $AGENTLOG_HOME/config.toml).
+# Every setting is optional; the values below are the defaults.
+
+# Gaps between events longer than this are breaks, not work.
+idle_minutes = 15
+
+# Model used by `claude -p` to write the before/did/after summaries.
+summary_model = "haiku"
+
+# Sessions whose working directory is under one of these are not logged.
+ignore_paths = ["/tmp"]
+
+# Directories never treated as a project root (e.g. if your home dir is a git repo).
+not_project_roots = ["~"]
+
+# Map a path prefix to a project name (longest prefix wins). Otherwise the
+# project is the basename of the git root containing the session's cwd.
+[aliases]
+# "~/code/old-name" = "new-name"
