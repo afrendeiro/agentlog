@@ -12,6 +12,19 @@ It answers questions like *"what did I actually do on Tuesday?"*, *"where did I 
 *"how much time went into Y this month?"* without you having to write anything down. Sessions are recorded
 automatically when they end, and summarised from the transcript by Claude.
 
+Run `agentlog` to bring the log up to date and browse it in a local web page with search, project and
+harness filters, and a daily activity chart:
+
+```console
+$ agentlog
+[14:12:03] recorded 1 new/changed session(s)
+[14:12:03] summarising 1 session(s) with claude -p
+[14:12:09] summarised my-webapp 2026-11-05T14:02: Add CSV export to reports page
+agentlog: http://127.0.0.1:8765
+```
+
+The same log is available in the terminal:
+
 ```console
 $ agentlog show -n 1
 - **my-webapp** · 2026-11-05 14:02–15:10 · 52m active · claude · Add CSV export to reports page
