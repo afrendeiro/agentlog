@@ -15,6 +15,10 @@ classifiers = [
     "Topic :: Software Development",
 ]
 
+[project.urls]
+Homepage = "https://github.com/afrendeiro/agentlog"
+Issues = "https://github.com/afrendeiro/agentlog/issues"
+
 [project.scripts]
 agentlog = "agentlog.cli:main"
 

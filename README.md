@@ -22,7 +22,7 @@ one directory instead, e.g. a private git repo of your own log.
 ## Install
 
 ```sh
-git clone <this repo> && cd agentlog
+git clone https://github.com/afrendeiro/agentlog && cd agentlog
 uv tool install .        # puts `agentlog` on PATH; use `-e .` to hack on it
 agentlog install         # Claude hook, opencode plugin, /log-session commands
 ```
