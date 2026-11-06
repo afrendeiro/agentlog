@@ -1,0 +1,30 @@
+name: Post coverage comment
+
+# Posts the coverage comment on PRs from forks, whose CI run has no write token.
+# Safe with workflow_run: this never checks out or runs the PR's code, it only posts the
+# comment file that CI uploaded as an artifact.
+on: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    permissions:
+      pull-requests: write # post the comment, and edit it on later runs
+      actions: read # download the comment artifact from the triggering CI run
+      contents: read
+    steps:
+      # Do NOT check out the repository here.
+      - uses: py-cov-action/python-coverage-comment-action@e5fb2218463c3377f3504b0c5b5646ed53da7a2f # v4.5
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_PR_RUN_ID: ${{ github.event.workflow_run.id }}

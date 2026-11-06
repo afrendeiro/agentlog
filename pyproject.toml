@@ -54,3 +54,7 @@ ignore = ["E501"]  # line length is left to the formatter
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["agentlog"]
+relative_files = true  # needed by the coverage badge action in CI
