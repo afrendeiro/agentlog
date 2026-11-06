@@ -1,6 +1,7 @@
 # agentlog
 
 [![CI](https://github.com/afrendeiro/agentlog/actions/workflows/ci.yml/badge.svg)](https://github.com/afrendeiro/agentlog/actions/workflows/ci.yml)
+[![Coverage](https://raw.githubusercontent.com/afrendeiro/agentlog/python-coverage-comment-action-data/badge.svg)](https://htmlpreview.github.io/?https://github.com/afrendeiro/agentlog/blob/python-coverage-comment-action-data/htmlcov/index.html)
 
 > [!NOTE]
 > **Built by AI agents.** agentlog was written almost entirely by LLM agents,
